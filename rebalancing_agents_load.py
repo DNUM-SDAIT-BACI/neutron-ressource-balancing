@@ -8,11 +8,14 @@ from optparse import OptionParser
 adhcp_nets = {}
 hash_adhcp = {}
 hash_net = {}
+
 al3_routers = {}
 hash_al3 = {}
 hash_router = {}
+
 average_l3_by_ag = 0
 average_net_by_ag  0
+
 stop_file="/tmp/rebalancing_agents_load.stop"
 
 ## Calcul le nombre de reseau ou routeur moyen
@@ -48,7 +51,7 @@ def init_data_dhcp(auth):
         adhcp_nets = {}
         hash_adhcp = {}
         hash_net = {}
-        dhcp_agents = list(auth.network.agents("DHCP agent"))
+        dhcp_agents = list(auth.network.agents(agent_type="DHCP agent"))
         nb_gl_networks = 0
         for dhcp_agent in dhcp_agents:
             if "neut-m" not in dhcp_agent.host or dhcp_agent.is_active is False:
@@ -71,7 +74,7 @@ def init_data_l3(auth):
         al3_routers = {}
         hash_al3 = {}
         hash_router = {}
-        l3_agents = list(auth.network.agents("L3 agent"))
+        l3_agents = list(auth.network.agents(agent_type="L3 agent"))
         nb_gl_routers = 0
         for l3_agent in l3_agents:
             if "neut-m" not in l3_agent.host or l3_agent.is_active is False:
@@ -92,7 +95,7 @@ def init_data_l3(auth):
 def get_agent_network(agent, asc_agent, agent_net, average_network):
     try:
         for ag in asc_agent:
-            if ag[0][1] > average_network:
+            if ag[1] > average_network:
                 print("In %s Can't find a new agent lower or egal to average %d" % (inspect.stack()[0][3],average_network))
                 return None
             if agent != ag[0] and ag[0] not in agent_net:
@@ -106,7 +109,7 @@ def get_agent_network(agent, asc_agent, agent_net, average_network):
 def get_agent_router(agent, asc_agent, average_router):
     try:
         for ag in asc_agent:
-            if ag[0][1] > average_network:
+            if ag[1] > average_network:
                 print("In %s Can't find a new agent lower or egal to average %d" % (inspect.stack()[0][3],average_router))
                 return None
             if agent != ag[0]:
@@ -126,15 +129,17 @@ def adding_removing_network(auth, agent, average_network):
                 print("Find file %s : stopping" %s stop_file)
                 return -2            
             keys = adhcp_nets[agent].keys()
-            if len(keys] == 0:
+            if len(keys) == 0:
                 return  -1
             net = keys[0]
             agent_net =  get_agent_id_form_network(net)
             new_agent = get_agent_network(agent, asc_agent, agent_net, average_network)
             if new_agent is None:                
                 return -1
+            print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
             resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
-            resp2 = auth.network.remove_dhcp_agent_to_network(agent, hash_net[net])
+            print("Removing Net %s to Agent DHCP : %s" % (net, agent))
+            resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
             adhcp_nets[new_agent][net] = adhcp_nets[agent][net]
             del(adhcp_nets[agent][net])
             asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
@@ -154,13 +159,15 @@ def adding_removing_router(auth, agent, average_router):
                 print("Find file %s : stopping" %s stop_file)
                 return -2            
             keys = al3_routers[agent].keys()
-            if len(keys] == 0:
+            if len(keys) == 0:
                 return -1
             router = keys[0]
             new_agent = get_agent_router(agent, asc_agent)
             if new_agent is None:                
-                return -1            
+                return -1
+            print("Adding Router %s to Agent L3 : %s" % (net, new_agent))            
             resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
+            print("Removing Router %s to Agent L3 : %s" % (net, agent))            
             resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
             al3_routers[new_agent][router] = al3_routers[agent][souter]
             del(al3_routers[agent][router])
@@ -254,8 +261,10 @@ def evacuate_network(auth, node):
             new_agent = get_agent_network(agent, asc_agent, agent_net, average_network)
             if new_agent is None:                
                 return -1
+            print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
             resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
-            resp2 = auth.network.remove_dhcp_agent_to_network(agent, hash_net[net])
+            print("Removing Net %s to Agent DHCP : %s" % (net, agent))
+            resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
             adhcp_nets[new_agent][net] = data_agent[net]
             asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
         return 0
@@ -283,8 +292,10 @@ def evacuate_router(auth, node):
             new_agent = get_agent_router(agent, asc_agent, average_router)
             if new_agent is None:                
                 return -1
-            resp1 = auth.network.(new_agent, hash_net[net])
-            resp2 = auth.network.(agent, hash_net[net])
+            print("Adding Router %s to Agent L3 : %s" % (net, new_agent))            
+            resp1 = auth.network.add_router_to_agent(new_agent, hash_net[net])
+            print("Removing Router %s to Agent L3 : %s" % (net, agent))            
+            resp2 = auth.network.remove_router_from_agent(agent, hash_net[net])
             al3_routers[new_agent][net] = data_agent[net]
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
         return 0
@@ -334,9 +345,13 @@ def main():
         node = args.node
         action = args.action
 
+        ### Check stop file
+        if os.path.exist(stop_file):
+            print("Find file %s : stopping" %s stop_file)
+
         ### verfication des arguments
         if action not in ["balancing", "evacuate"]:
-            print("Syntaxe is Wrong action is not balancing or evacuate Value %s" % action)
+            print("Syntaxe is Wrong !!! action is not balancing or evacuate Value %s" % action)
             sys.exit(1)
 
         if action == "evacuate" and node is None:
@@ -344,16 +359,16 @@ def main():
             sys.exit(1)
 
         if action == "evacuate" and "neut-m" in node:
-            print("Syntaxe is Wrong for action evacuate Wrong node name exxpecting name containing neut-m")
+            print("Syntaxe is Wrong !!! action evacuate Wrong node name expecting name containing neut-m")
             sys.exit(1)
 
         ### Initialisation de la connection
         auth = init_conn()
 
-        ### Etat initiale Agent DHCP
+        ### Etat initial Agent DHCP
         init_data_dhcp(auth)
 
-        ### Etat initiale Agent L3        
+        ### Etat initial Agent L3        
         init_data_l3(auth)
 
         ### Check de l'équilibrage au demarrage
@@ -378,10 +393,10 @@ def main():
                 print("Exit !!! something is wrong in evacuate_router")
                 sys.exit(1)
 
-        ### Etat initiale Agent DHCP
+        ### Etat initial Agent DHCP
         init_data_dhcp(auth)
 
-        ### Etat initiale Agent L3        
+        ### Etat initial Agent L3        
         init_data_l3(auth)
 
         ### Check de l'equilibrage a la fin
