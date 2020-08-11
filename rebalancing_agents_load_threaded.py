@@ -1,11 +1,16 @@
 #!/opt/openstackclient-3.9.0/bin/python
 
 import openstack, inspect, math, logging, datetime, subprocess
-import sys, os, re, threading, queue, argparse
+import sys, os, re, queue, argparse
 from optparse import OptionParser
 from operator import itemgetter
 
+#### Threading
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed
 from time import sleep
+from random import randint
+from pathlib import Path
+
 #### Variable Globale
 adhcp_nets = {}
 hash_adhcp = {}
@@ -33,7 +38,7 @@ nb_router_max= -1
 logdir="/tmp/"
 log = None
 
-ssh_cmd = 'ssh %s -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" sudo ip netns'
+ssh_cmd = 'ssh %s -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ip netns'
 
 ## ssh helion-cp1-neut-m1-mgmt -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ip netns
 # stack@helion-cp1-neut-m1-mgmt:~$ ip netns
@@ -69,6 +74,53 @@ def pair_list_nb_by_id_dsc(hash_agent):
 ## retourne la paire d'agent gerant un reseau
 def get_agent_id_form_network(auth, network):
     return list(map((lambda x : x.id), auth.network.network_hosting_dhcp_agents(network)))
+
+## Moving and removing Network or router
+def moving_removing_net_or_router(auth, myqueue):
+    global adhcp_nets, hash_net, al3_routers, hash_router, log, check_action_net, check_action_router
+    try:
+
+        while myqueue.empty() is False:
+            data = myqueue.get(block=False)
+
+            if len(data) != 4:
+                log.error("Wrong Data in thread len != 3 : %s " % ",".join(data))
+                raise
+
+            if data[0] not in ["Net", "Router"]:
+                log.error("Wrong Data in thread not known : %s " % ",".join(data))
+                raise
+
+            if os.path.exists(stop_file):
+                print("Find file %s : stopping" % stop_file)
+                log.error("Find file %s : stopping" % stop_file)
+                break
+            
+            if data[0] == "Net":
+                log.info("Adding Net %s to Agent DHCP : %s" % (data[3], data[1]))
+                auth.network.add_dhcp_agent_to_network(data[1], hash_net[data[3]])
+                check_action_net[hash_adhcp[data[1]].host].append(["Adding", "net", data[3]])
+
+                log.info("Removing Net %s to Agent DHCP : %s" % (data[3], data[2]))
+                auth.network.remove_dhcp_agent_from_network(data[2], hash_net[data[3]])
+                check_action_net[hash_adhcp[data[2]].host].append(["Removing", "net", data[3]])
+                
+            if data[0] == "Router":
+                log.info("Removing Router %s to Agent L3 : %s" % (data[3], data[2]))
+                auth.network.remove_router_from_agent(data[2], hash_router[data[3]])
+                check_action_router[hash_al3[data[2]].host].append(["Removing", "router", data[3]])                
+
+                log.info("Adding Router %s to Agent L3 : %s" % (data[3], data[1]))
+                auth.network.add_router_to_agent(data[1], hash_router[data[3]])
+                check_action_router[hash_al3[data[1]].host].append(["Adding", "router", data[3]])                
+                
+    except queue.Empty:
+        pass
+    
+    except Exception as e:
+        Path(stop_file).touch()
+        log.error("Error in %s Err : %s" % (inspect.stack()[0][3], e))
+
 
 ## Etablissement de la connexion
 def init_conn():
@@ -171,9 +223,10 @@ def get_agent_router(agent, asc_agent, average_router):
     
 ## pour un agent on deplace les reseaux sur d'autres agent pour retomber en dessous de la moyenne
 def adding_removing_network(auth, agent, average_network):
-    global adhcp_nets, hash_net, dryrun, log, nb_net_max, nb_router_max, nb_network, check_action_net
+    global adhcp_nets, hash_net, dryrun, log, nb_th, nb_net_max, nb_router_max, nb_network
     try:
         asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
+        myqueue = queue.Queue()
 
         exclude_net = []
         while len(adhcp_nets[agent]) > average_network:
@@ -207,17 +260,24 @@ def adding_removing_network(auth, agent, average_network):
 
             print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
             log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
-                check_action_net[hash_adhcp[new_agent].host].append(["Adding", "net", net])
+
+            myqueue.put(["Net", new_agent, agent, net])
+
             print("Removing Net %s to Agent DHCP : %s" % (net, agent))
             log.info("Removing Net %s to Agent DHCP : %s" % (net, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
-                check_action_net[hash_adhcp[agent].host].append(["Removing", "net", net])
+
             adhcp_nets[new_agent][net] = adhcp_nets[agent][net]
             del(adhcp_nets[agent][net])
             asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
+
+        if not dryrun:
+            pool = ThreadPoolExecutor(nb_th)
+            futures = []
+            for x in range(nb_th):
+                futures.append(pool.submit(moving_removing_net_or_router, auth, myqueue))
+ 
+            for x in as_completed(futures):
+                pass
 
         return 0
     except Exception as e:
@@ -227,9 +287,10 @@ def adding_removing_network(auth, agent, average_network):
 
 ## pour un agent on deplace les routeurs sur d'autres agent pour retomber en dessous de la moyenne
 def adding_removing_router(auth, agent, average_router):
-    global al3_routers, hash_router, dryrun, log, nb_net_max, nb_router_max, nb_router
+    global al3_routers, hash_router, dryrun, log, nb_th, nb_net_max, nb_router_max, nb_router
     try:
         asc_agent = pair_list_nb_by_id_asc(al3_routers)
+        myqueue = queue.Queue()
 
         exclude_router = []        
         while len(al3_routers[agent]) > average_router:
@@ -240,7 +301,6 @@ def adding_removing_router(auth, agent, average_router):
             keys = al3_routers[agent].keys()
             if len(keys) == 0:
                 return -1
-            router = next(iter(keys))
             router = None
             for r in iter(keys):
                 if r not in exclude_router:
@@ -257,19 +317,23 @@ def adding_removing_router(auth, agent, average_router):
                 break
             nb_router +=1
             print("Removing Router %s to Agent L3 : %s" % (router, agent))
-            log.info("Removing Router %s to Agent L3 : %s" % (router, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
-                check_action_router[hash_al3[agent].host].append(["Removing", "router", router])
+            log.info("Removing Router %s to Agent L3 : %s" % (router, agent))
+            myqueue.put(["Router", new_agent, agent, router])            
             print("Adding Router %s to Agent L3 : %s" % (router, new_agent))
             log.info("Adding Router %s to Agent L3 : %s" % (router, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
-                check_action_router[hash_al3[new_agent].host].append(["Adding", "router", router])
             al3_routers[new_agent][router] = al3_routers[agent][router]
             del(al3_routers[agent][router])
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
+
+        if not dryrun:
+            pool = ThreadPoolExecutor(nb_th)
+            futures = []
+            for x in range(nb_th):
+                futures.append(pool.submit(moving_removing_net_or_router, auth, myqueue))
  
+            for x in as_completed(futures):
+                pass
+
         return 0
     except Exception as e:
         print("Fatal Error in %s Err : %s" % (inspect.stack()[0][3], e))
@@ -355,10 +419,12 @@ def get_agent_l3_from_node(node):
 
 ## Evacue les reseaux sur les autres agents
 def evacuate_network(auth, node):
-    global adhcp_nets, hash_net, dryrun, log, nb_net_max, nb_router_max, nb_network, check_action_net
+    global adhcp_nets, hash_net, dryrun, log, nb_th, nb_net_max, nb_router_max, nb_network, nb_net_max
     try:
         average_network = average_less_one(adhcp_nets)
         agent = get_agent_dhcp_from_node(node)
+        myqueue = queue.Queue()
+        
         if agent is None:
             print("Exit Can't find agent DHCP for node %s" % node)
             log.error("Exit Can't find agent DHCP for node %s" % node)            
@@ -381,17 +447,22 @@ def evacuate_network(auth, node):
                 continue
             nb_network +=1            
             print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
-            log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
-                check_action_net[hash_adhcp[new_agent].host].append(["Adding", "net", net])
+            log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
+            myqueue.put(["Net", new_agent, agent, net])            
             print("Removing Net %s to Agent DHCP : %s" % (net, agent))
             log.info("Removing Net %s to Agent DHCP : %s" % (net, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
-                check_action_net[hash_adhcp[agent].host].append(["Removing", "net", net])
             adhcp_nets[new_agent][net] = data_agent[net]
             asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
+
+        if not dryrun:
+            pool = ThreadPoolExecutor(nb_th)
+            futures = []
+            for x in range(nb_th):
+                futures.append(pool.submit(moving_removing_net_or_router, auth, myqueue))
+ 
+            for x in as_completed(futures):
+                pass
+            
         return 0
     except Exception as e:
         print("Fatal Error in %s Err : %s" % (inspect.stack()[0][3], e))
@@ -400,10 +471,12 @@ def evacuate_network(auth, node):
 
 ## Evacue les routeurs sur les autres agents
 def evacuate_router(auth, node):
-    global al3_routers, hash_router, dryrun, log, nb_net_max, nb_router_max, nb_router
+    global al3_routers, hash_router, dryrun, log, nb_th, nb_net_max, nb_router_max, nb_router
     try:
         average_router = average_less_one(al3_routers)
         agent = get_agent_l3_from_node(node)
+        myqueue = queue.Queue()
+
         if agent is None:
             print("Exit Can't find agent L3 for node %s" % node)
             log.error("Exit Can't find agent L3 for node %s" % node)            
@@ -425,16 +498,21 @@ def evacuate_router(auth, node):
             nb_router +=1            
             print("Removing Router %s to Agent L3 : %s" % (router, agent))
             log.info("Removing Router %s to Agent L3 : %s" % (router, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
-                check_action_router[hash_al3[agent].host].append(["Removing", "router", router])
+            myqueue.put(["Router", new_agent, agent, router])            
             print("Adding Router %s to Agent L3 : %s" % (router, new_agent))
             log.info("Adding Router %s to Agent L3 : %s" % (router, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
-                check_action_router[hash_al3[new_agent].host].append(["Removing", "router", router])                
             al3_routers[new_agent][router] = data_agent[router]
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
+
+        if not dryrun:
+            pool = ThreadPoolExecutor(nb_th)
+            futures = []
+            for x in range(nb_th):
+                futures.append(pool.submit(moving_removing_net_or_router, auth, myqueue))
+ 
+            for x in as_completed(futures):
+                pass
+            
         return 0
     except Exception as e:
         print("Fatal Error in %s Err : %s" % (inspect.stack()[0][3], e))
@@ -532,9 +610,10 @@ def check_namespace(auth):
         print("Fatal Error in %s Err : %s" % (inspect.stack()[0][3], e))
         log.error("Fatal Error in %s Err : %s" % (inspect.stack()[0][3], e))        
         return 1
+
         
 def main():
-    global dryrun, logdir, log, nb_net_max, nb_router_max
+    global dryrun, logdir, log, nb_th, nb_net_max, nb_router_max
     try:
 
         # LOG HANDLER
@@ -556,6 +635,11 @@ def main():
         parser.add_argument("-n", "--node", action= "store", dest="node", \
                             default=None, \
                             help="Neutron node for evacuate")
+
+        ### Specification du nombe de thread
+        parser.add_argument("--nb_thread", action= "store", dest="nb_thread", \
+                            default=1, \
+                            help="Nombre de Threads (default 1)")
 
         ### Specification du nombe de reseau maximum a evacuer/balancer
         parser.add_argument("--nb_net_max", action= "store", dest="nb_net_max", \
@@ -586,10 +670,10 @@ def main():
         dryrun = args.dryrun
         statonly = args.stat
 
+        nb_th = int(args.nb_thread)
         nb_net_max = int(args.nb_net_max)
         nb_router_max = int(args.nb_router_max)
 
-        
         ### Check stop file
         if os.path.exists(stop_file):
             log.error("Find file %s : stopping" % stop_file)

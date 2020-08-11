@@ -1,0 +1,1599 @@
+ 
+ 
+Min int
+lundi 27 juillet 2020
+21:44
+>>> from keystoneauth1 import identity
+>>> from keystoneauth1 import session
+>>> from neutronclient.v2_0 import client
+>>> username='username'
+>>> password='password'
+>>> project_name='demo'
+>>> project_domain_id='default'
+>>> user_domain_id='default'
+>>> auth_url='http://auth.example.com:5000/v3'
+>>> auth = identity.Password(auth_url=auth_url,
+...                          username=username,
+...                          password=password,quit()
+...                          project_name=project_name,
+...                          project_domain_id=project_domain_id,
+...                          user_domain_id=user_domain_id)
+>>> sess = session.Session(auth=auth)
+>>> neutron = client.Client(session=sess)
+ 
+From <https://docs.openstack.org/python-neutronclient/pike/reference/index.html> 
+ 
+>> auth = identity.Password(auth_url=auth_url,
+...                          username=username,
+...                          password=password,
+...                          project_name=project_name)
+>>> # create a Session and a Neutronclient
+ 
+From <https://docs.openstack.org/python-neutronclient/pike/reference/index.html> 
+ 
+>>> network = {'name': 'mynetwork', 'admin_state_up': True}
+>>> neutron.create_network({'network':network})
+>>> networks = neutron.list_networks(name='mynetwork')
+>>> print networks
+>>> network_id = networks['networks'][0]['id']
+>>> neutron.delete_network(network_id)
+ 
+From <https://docs.openstack.org/python-neutronclient/pike/reference/index.html> 
+ 
+>>> from neutronclient.v2_0 import client
+>>> neutron = client.Client(endpoint_url='http://192.168.206.130:9696/',
+...                         token='d3f9226f27774f338019aa2611112ef6')
+ 
+From <https://docs.openstack.org/python-neutronclient/pike/reference/index.html> 
+>>> network = {'name': 'mynetwork', 'admin_state_up': True}
+>>> neutron.create_network({'network':network})
+>>> networks = neutron.list_networks(name='mynetwork')
+>>> print networks.request_ids
+['req-978a0160-7ab0-44f0-8a93-08e9a4e785fa']
+ 
+From <https://docs.openstack.org/python-neutronclient/pike/reference/index.html> 
+ 
+ 
+1.- List agent Ids:
+openstack network agent list | grep dhcp
+openstack network agent list | grep l3
+ 
+2.- Add network/router to new agent
+        neutron dhcp-agent-network-add DHCP_AGENT NETWORK
+        neutron l3-agent-router-add L3_AGENT ROUTER
+ 
+3.- Remove network/router from agent
+        neutron dhcp-agent-network-remove DHCP_AGENT NETWORK
+        neutron l3-agent-router-remove L3_AGENT ROUTER
+ 
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ openstack network agent list -f csv | grep l3
+"45f7fd43-2bda-40f0-83ca-f16026af218e","L3 agent","hos5ms-cp1-comp0002-mgmt","nova",True,"UP","neutron-l3-agent"
+"50e59a5d-6a81-40e6-8d82-ebbca248a396","L3 agent","hos5ms-cp1-comp0001-mgmt","nova",True,"UP","neutron-l3-agent"
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ openstack network agent list -f csv | grep -i L3 | grep "neut-m"
+"0138e4e3-85dd-415b-9413-a0201c06f8fd","L3 agent","hos5ms-cp1-neut-m1-mgmt","nova",True,"UP","neutron-vpn-agent"
+"a483142d-1295-4438-b6dc-ed79d4b06f66","L3 agent","hos5ms-cp1-neut-m2-mgmt","nova",True,"UP","neutron-vpn-agent"
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ neutron router-list-on-l3-agent 0138e4e3-85dd-415b-9413-a0201c06f8fd -f csv
+"id","name","external_gateway_info"
+"88e104d5-d2a1-4161-896a-ef59ae76ee44","routerV","{""network_id"": ""e23cb063-a66e-4cff-aeda-9cda63275ee1"", ""enable_snat"": true, ""external_fixed_ips"": [{""subnet_id"": ""0af56194-920e-407c-ba6b-1f610baee8bd"", ""ip_address"": ""10.41.122.12""}]}"
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ neutron router-list-on-l3-agent a483142d-1295-4438-b6dc-ed79d4b06f66 -f csv
+"id","name","external_gateway_info"
+"ad659025-2d18-43e5-a65c-f2ed365a716d","router1","{""network_id"": ""e23cb063-a66e-4cff-aeda-9cda63275ee1"", ""enable_snat"": true, ""external_fixed_ips"": [{""subnet_id"": ""0af56194-920e-407c-ba6b-1f610baee8bd"", ""ip_address"": ""10.41.122.13""}]}"
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ ./rebalancing_agents_load.py  --statonly                  # Network by agent:
+ 
+Agent: 1772b6f5-63a3-43a3-a533-813e3d1c1049 # Network : 4
+Agent: 29c98876-8c11-4962-a6b3-8789da8a03b1 # Network : 4
+ 
+ 
+# Router by agent:
+ 
+Agent: a483142d-1295-4438-b6dc-ed79d4b06f66 # Router : 1
+Agent: 0138e4e3-85dd-415b-9413-a0201c06f8fd # Router : 1
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+ 
+ neutron l3-agent-router-add a483142d-1295-4438-b6dc-ed79d4b06f66 88e104d5-d2a1-4161-896a-ef59ae76ee44
+ neutron l3-agent-router-remove 0138e4e3-85dd-415b-9413-a0201c06f8fd 88e104d5-d2a1-4161-896a-ef59ae76ee44
+ 
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$  neutron l3-agent-router-add a483142d-1295-4438-b6dc-ed79d4b06f66 88e104d5-d2a1-4161-896a-ef59ae76ee44
+The router 88e104d5-d2a1-4161-896a-ef59ae76ee44 has been already hosted by the L3 Agent 0138e4e3-85dd-415b-9413-a0201c06f8fd.
+Neutron server returns request_ids: ['req-c92cd299-848b-4295-a5b2-7ccdfeb7b201']
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$  neutron l3-agent-router-remove 0138e4e3-85dd-415b-9413-a0201c06f8fd 88e104d5-d2a1-4161-896a-ef59ae76ee44
+Removed router 88e104d5-d2a1-4161-896a-ef59ae76ee44 from L3 agent
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ 
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ ./rebalancing_agents_load.py  --statonly
+# Network by agent:
+ 
+Agent: 29c98876-8c11-4962-a6b3-8789da8a03b1 # Network : 4
+Agent: 1772b6f5-63a3-43a3-a533-813e3d1c1049 # Network : 4
+ 
+ 
+# Router by agent:
+ 
+Agent: 0138e4e3-85dd-415b-9413-a0201c06f8fd # Router : 0
+Agent: a483142d-1295-4438-b6dc-ed79d4b06f66 # Router : 1
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ neutron l3-agent-router-add a483142d-1295-4438-b6dc-ed79d4b06f66 88e104d5-d2a1-4161-896a-ef59ae76ee44
+Added router 88e104d5-d2a1-4161-896a-ef59ae76ee44 to L3 agent
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ ./rebalancing_agents_load.py  --statonly
+# Network by agent:
+ 
+Agent: 29c98876-8c11-4962-a6b3-8789da8a03b1 # Network : 4
+Agent: 1772b6f5-63a3-43a3-a533-813e3d1c1049 # Network : 4
+ 
+ 
+# Router by agent:
+ 
+Agent: 0138e4e3-85dd-415b-9413-a0201c06f8fd # Router : 0
+Agent: a483142d-1295-4438-b6dc-ed79d4b06f66 # Router : 2
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+==============================================================================
+Logger
+ 
+ 
+        # LOG HANDLER
+        date = datetime.datetime.today().strftime("%Y%m%d%H%M")
+        logfile = "%s/rebalancing_load_%s_%s.log" % (logdir, host, date)
+ 
+        log1 = logging.getLogger()
+        log1.setLevel(logging.INFO)
+        fh = logging.FileHandler(logfile)
+        fh.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
+        fh.setFormatter(formatter)
+        log1.addHandler(fh)
+==============================================================================
+ 
+==============================================================================
+Threading
+ 
+Import  Queue, threading
+ 
+class LaunchProcess(threading.Thread):
+ 
+    def __init__(self, queue):
+        self.queue = queue
+        threading.Thread.__init__(self)
+ 
+    def run(self):
+        while True:
+            try:
+                if self.queue.empty():
+                    break
+ 
+                data = self.queue.get(block=False)
+ 
+     if data[0] == "router":
+     elif data[0] == "network"
+     else:
+print("Unknown Data to manage")
+ 
+            except Exception as msg:
+                print("Error in  Err : ", msg)
+                break
+ 
+    for node in NodeSet(nodes):
+#        exec_command(node)
+        queue.put(node)
+ 
+ 
+ 
+def execute_tasks(auth, queue):
+   try:
+   mythreads = []
+ 
+    for i in range(nb_th):
+        th = LaunchProcess(auth, queue)
+        mythreads.append(th)
+        th.start()
+ 
+    for th in mythreads:
+        th.join()
+   exception Exception as msg:
+Print()
+==============================================================================
+ 
+ 
+ https://LabRAT.bgl1.global.tslabs.hpecorp.net
+ 
+>>> print("\n".join(['os.environ["%s"]:%s' % (k, os.environ[k]) for k in os.environ if "OS_" in k]))
+os.environ["OS_AUTH_URL"]:https://10.41.123.3:5000/v3
+os.environ["OS_INTERFACE"]:internal
+os.environ["OS_COMPUTE_API_VERSION"]:2
+os.environ["OS_PROJECT_NAME"]:admin
+os.environ["OS_CACERT"]:/etc/ssl/certs/ca-certificates.crt
+os.environ["OS_ENDPOINT_TYPE"]:internalURL
+os.environ["OS_IDENTITY_API_VERSION"]:3
+os.environ["OS_USERNAME"]:admin
+os.environ["OS_AUTH_VERSION"]:3
+os.environ["OS_USER_DOMAIN_NAME"]:Default
+os.environ["OS_PASSWORD"]:G6CNBpSh
+os.environ["OS_PROJECT_DOMAIN_NAME"]:Default
+>>>
+ 
+ 
+ 
+>>> print("\n".join(dir(conn.network)))
+__class__
+__delattr__
+__dict__
+__dir__
+__doc__
+__eq__
+__format__
+__ge__
+__getattribute__
+__gt__
+__hash__
+__init__
+__le__
+__lt__
+__module__
+__ne__
+__new__
+__reduce__
+__reduce_ex__
+__repr__
+__setattr__
+__sizeof__
+__str__
+__subclasshook__
+__weakref__
+_check_tag_support
+_connection
+_create
+_delete
+_find
+_get
+_get_resource
+_get_uri_attribute
+_head
+_list
+_set_endpoint_filter_kwargs
+_update
+_version_matches
+add_dhcp_agent_to_network
+add_gateway_to_router
+add_interface_to_router
+add_ip_to_port
+add_router_to_agent
+add_trunk_subports
+additional_headers
+address_scopes
+agent_hosted_routers
+agents
+allow
+allow_version_hack
+associate_flavor_with_service_profile
+auth
+availability_zones
+client_name
+client_version
+connect_retries
+create_address_scope
+create_flavor
+create_health_monitor
+create_ip
+create_listener
+create_load_balancer
+create_metering_label
+create_metering_label_rule
+create_network
+create_pool
+create_pool_member
+create_port
+create_qos_bandwidth_limit_rule
+create_qos_dscp_marking_rule
+create_qos_minimum_bandwidth_rule
+create_qos_policy
+create_rbac_policy
+create_router
+create_security_group
+create_security_group_rule
+create_segment
+create_service_profile
+create_subnet
+create_subnet_pool
+create_trunk
+create_vpn_service
+default_microversion
+delete
+delete_address_scope
+delete_agent
+delete_auto_allocated_topology
+delete_flavor
+delete_health_monitor
+delete_ip
+delete_listener
+delete_load_balancer
+delete_metering_label
+delete_metering_label_rule
+delete_network
+delete_pool
+delete_pool_member
+delete_port
+delete_qos_bandwidth_limit_rule
+delete_qos_dscp_marking_rule
+delete_qos_minimum_bandwidth_rule
+delete_qos_policy
+delete_quota
+delete_rbac_policy
+delete_router
+delete_security_group
+delete_security_group_rule
+delete_segment
+delete_service_profile
+delete_subnet
+delete_subnet_pool
+delete_trunk
+delete_trunk_subports
+delete_vpn_service
+dhcp_agent_hosting_networks
+disassociate_flavor_from_service_profile
+endpoint_override
+extensions
+find_address_scope
+find_available_ip
+find_extension
+find_flavor
+find_health_monitor
+find_ip
+find_listener
+find_load_balancer
+find_metering_label
+find_metering_label_rule
+find_network
+find_network_ip_availability
+find_pool
+find_pool_member
+find_port
+find_qos_bandwidth_limit_rule
+find_qos_dscp_marking_rule
+find_qos_minimum_bandwidth_rule
+find_qos_policy
+find_qos_rule_type
+find_rbac_policy
+find_router
+find_security_group
+find_security_group_rule
+find_segment
+find_service_profile
+find_subnet
+find_subnet_pool
+find_trunk
+find_vpn_service
+flavors
+get
+get_address_scope
+get_agent
+get_api_major_version
+get_auto_allocated_topology
+get_endpoint
+get_endpoint_data
+get_flavor
+get_health_monitor
+get_ip
+get_listener
+get_load_balancer
+get_metering_label
+get_metering_label_rule
+get_network
+get_network_ip_availability
+get_pool
+get_pool_member
+get_port
+get_project_id
+get_qos_bandwidth_limit_rule
+get_qos_dscp_marking_rule
+get_qos_minimum_bandwidth_rule
+get_qos_policy
+get_qos_rule_type
+get_quota
+get_quota_default
+get_rbac_policy
+get_router
+get_security_group
+get_security_group_rule
+get_segment
+get_service_profile
+get_subnet
+get_subnet_pool
+get_subnet_ports
+get_token
+get_trunk
+get_trunk_subports
+get_user_id
+get_vpn_service
+global_request_id
+head
+health_monitors
+interface
+invalidate
+ips
+listeners
+load_balancers
+logger
+max_version
+metering_label_rules
+metering_labels
+min_version
+network_hosting_dhcp_agents
+network_ip_availabilities
+networks
+patch
+pool_members
+pools
+ports
+post
+put
+qos_bandwidth_limit_rules
+qos_dscp_marking_rules
+qos_minimum_bandwidth_rules
+qos_policies
+qos_rule_types
+quotas
+raise_exc
+rbac_policies
+region_name
+register_argparse_arguments
+register_service_argparse_arguments
+remove_dhcp_agent_from_network
+remove_gateway_from_router
+remove_interface_from_router
+remove_ip_from_port
+remove_router_from_agent
+request
+retriable_status_codes
+routers
+routers_hosting_l3_agents
+security_group_allow_ping
+security_group_open_port
+security_group_rules
+security_groups
+segments
+service_name
+service_profiles
+service_providers
+service_type
+session
+set_tags
+status_code_retries
+subnet_pools
+subnets
+task_manager
+trunks
+update_address_scope
+update_agent
+update_flavor
+update_health_monitor
+update_ip
+update_listener
+update_load_balancer
+update_metering_label
+update_metering_label_rule
+update_network
+update_pool
+update_pool_member
+update_port
+update_qos_bandwidth_limit_rule
+update_qos_dscp_marking_rule
+update_qos_minimum_bandwidth_rule
+update_qos_policy
+update_quota
+update_rbac_policy
+update_router
+update_security_group
+update_segment
+update_service_profile
+update_subnet
+update_subnet_pool
+update_trunk
+update_vpn_service
+user_agent
+validate_auto_allocated_topology
+version
+vpn_services
+wait_for_delete
+wait_for_status
+>>>
+ 
+>>> print("\n".join(dir(auth)))
+_FLOAT_AGE
+_PORT_AGE
+_SERVER_AGE
+__class__
+__delattr__
+__dict__
+__dir__
+__doc__
+__eq__
+__format__
+__ge__
+__getattribute__
+__gt__
+__hash__
+__init__
+__le__
+__lt__
+__module__
+__ne__
+__new__
+__reduce__
+__reduce_ex__
+__repr__
+__setattr__
+__sizeof__
+__str__
+__subclasshook__
+__weakref__
+_add_auto_ip
+_add_etag_to_manifest
+_add_ip_from_pool
+_application_catalog_client
+_attach_ip_to_server
+_baremetal_client
+_build_external_gateway_info
+_cache
+_clustering_client
+_container_cache
+_container_infra_client
+_database_client
+_default_network
+_default_network_network
+_delete_floating_ip
+_delete_server
+_delete_server_floating_ips
+_disable_warnings
+_dns_client
+_encode_server_userdata
+_expand_server
+_expand_server_vars
+_external_ipv4_floating_networks
+_external_ipv4_names
+_external_ipv4_networks
+_external_ipv6_names
+_external_ipv6_networks
+_extra_services
+_file_hash_cache
+_find_floating_network_by_router
+_find_interesting_networks
+_finish_large_object_dlo
+_finish_large_object_slo
+_floating_ip_source
+_floating_ips
+_floating_ips_lock
+_floating_ips_time
+_floating_network_by_router
+_floating_network_by_router_lock
+_floating_network_by_router_run
+_get_and_munchify
+_get_boot_from_volume_kwargs
+_get_cache
+_get_current_location
+_get_domain_id_param_dict
+_get_file_hashes
+_get_file_segments
+_get_floating_network_id
+_get_grant_revoke_params
+_get_identity_location
+_get_identity_params
+_get_major_version_id
+_get_name_and_filename
+_get_project_id_param_dict
+_get_project_info
+_get_raw_client
+_get_server_console_output
+_get_server_security_groups
+_get_user_and_group
+_get_versioned_client
+_get_volume_kwargs
+_has_floating_ips
+_has_neutron_extension
+_has_nova_extension
+_has_secgroups
+_hashes_up_to_date
+_identity_client
+_image_client
+_internal_ipv4_names
+_internal_ipv4_networks
+_internal_ipv6_names
+_internal_ipv6_networks
+_is_client_version
+_keystone_catalog
+_keystone_v2_role_assignments
+_keystone_v3_role_assignments
+_list_floating_ips
+_list_ports
+_list_servers
+_local_ipv6
+_make_cache
+_make_cache_key
+_make_v2_image_params
+_mod_flavor_access
+_nat_destination
+_nat_destination_network
+_nat_destination_port
+_needs_floating_ip
+_network_client
+_network_list_stamp
+_networks_lock
+_neutron_attach_ip_to_server
+_neutron_available_floating_ips
+_neutron_create_floating_ip
+_neutron_delete_floating_ip
+_neutron_detach_ip_from_server
+_neutron_extensions
+_neutron_list_floating_ips
+_normalize_cluster_template
+_normalize_cluster_templates
+_normalize_coe_cluster
+_normalize_coe_clusters
+_normalize_compute_limits
+_normalize_compute_usage
+_normalize_flavor
+_normalize_flavors
+_normalize_floating_ip
+_normalize_floating_ips
+_normalize_image
+_normalize_images
+_normalize_keypair
+_normalize_keypairs
+_normalize_machine
+_normalize_machines
+_normalize_magnum_service
+_normalize_magnum_services
+_normalize_project
+_normalize_projects
+_normalize_role
+_normalize_roles
+_normalize_secgroup
+_normalize_secgroup_rule
+_normalize_secgroup_rules
+_normalize_secgroups
+_normalize_server
+_normalize_server_usage
+_normalize_server_usages
+_normalize_servers
+_normalize_stack
+_normalize_stacks
+_normalize_volume
+_normalize_volume_attachment
+_normalize_volume_backup
+_normalize_volume_backups
+_normalize_volume_type
+_normalize_volume_type_access
+_normalize_volume_type_accesses
+_normalize_volume_types
+_normalize_volumes
+_nova_attach_ip_to_server
+_nova_available_floating_ips
+_nova_create_floating_ip
+_nova_delete_floating_ip
+_nova_detach_ip_from_server
+_nova_extensions
+_nova_list_floating_ips
+_object_name_from_url
+_object_store_client
+_orchestration_client
+_ports
+_ports_lock
+_ports_time
+_proxies
+_raw_clients
+_raw_image_client
+_remove_novaclient_artifacts
+_reset_network_caches
+_resource_caches
+_servers
+_servers_lock
+_servers_time
+_session
+_set_interesting_networks
+_set_machine_power_state
+_submit_create_fip
+_update_image_properties_v1
+_update_image_properties_v2
+_upload_image_from_volume
+_upload_image_put
+_upload_image_put_v1
+_upload_image_put_v2
+_upload_image_task
+_upload_large_object
+_upload_object
+_upload_object_data
+_use_external_network
+_use_internal_network
+_use_neutron_floating
+_use_neutron_secgroups
+_volume_client
+activate_node
+add_auto_ip
+add_flavor_access
+add_host_to_aggregate
+add_ip_list
+add_ips_to_server
+add_router_interface
+add_server_security_groups
+add_service
+add_user_to_group
+add_volume_type_access
+alarm
+alarming
+application_catalog
+application_container
+application_deployment
+attach_policy_to_cluster
+attach_volume
+auth
+auth_token
+authorize
+available_floating_ip
+backup
+bare_metal
+baremetal
+baremetal_introspection
+block_storage
+block_store
+cache_enabled
+cert
+cluster
+clustering
+compute
+config
+connect_as
+connect_as_project
+container
+container_infra
+container_infrastructure
+container_infrastructure_management
+create_aggregate
+create_baymodel
+create_cluster
+create_cluster_policy
+create_cluster_profile
+create_cluster_receiver
+create_cluster_template
+create_coe_cluster
+create_coe_cluster_template
+create_container
+create_directory_marker_object
+create_domain
+createins_endpoint
+create_flavor
+create_floating_ip
+create_group
+create_image
+create_image_snapshot
+create_keypair
+create_network
+create_object
+create_port
+create_project
+create_qos_bandwidth_limit_rule
+create_qos_dscp_marking_rule
+create_qos_minimum_bandwidth_rule
+create_qos_policy
+create_recordset
+create_role
+create_router
+create_security_group
+create_security_group_rule
+create_server
+create_server_group
+create_service
+create_stack
+create_subnet
+create_user
+create_volume
+create_volume_backup
+create_volume_snapshot
+create_zone
+current_location
+current_project
+current_project_id
+current_user_id
+data_processing
+data_protection_orchestration
+database
+deactivate_node
+default_interface
+delete_aggregate
+delete_autocreated_image_objects
+delete_baymodel
+delete_cluster
+delete_cluster_policy
+delete_cluster_profile
+delete_cluster_receiver
+delete_cluster_template
+delete_coe_cluster
+delete_coe_cluster_template
+delete_compute_quotas
+delete_container
+delete_domain
+delete_endpoint
+delete_flavor
+delete_floating_ip
+delete_group
+delete_image
+delete_keypair
+delete_network
+delete_network_quotas
+delete_object
+delete_port
+delete_project
+delete_qos_bandwidth_limit_rule
+delete_qos_dscp_marking_rule
+delete_qos_minimum_bandwidth_rule
+delete_qos_policy
+delete_recordset
+delete_role
+delete_router
+delete_security_group
+delete_security_group_rule
+delete_server
+delete_server_group
+delete_server_metadata
+delete_service
+delete_stack
+delete_subnet
+delete_unattached_floating_ips
+delete_user
+delete_volume
+delete_volume_backup
+delete_volume_quotas
+delete_volume_snapshot
+delete_zone
+detach_ip_from_server
+detach_policy_from_cluster
+detach_volume
+dns
+download_image
+endpoint_for
+event
+events
+force_ipv4
+function_engine
+get_active_server
+get_aggregate
+get_baymodel
+get_cluster
+get_cluster_by_id
+get_cluster_policy
+get_cluster_policy_by_id
+get_cluster_profile
+get_cluster_profile_by_id
+get_cluster_receiver
+get_cluster_receiver_by_id
+get_cluster_template
+get_coe_cluster
+get_coe_cluster_certificate
+get_coe_cluster_template
+get_compute_limits
+get_compute_quotas
+get_compute_usage
+get_container
+get_container_access
+get_default_network
+get_domain
+get_endpoint
+get_external_ipv4_floating_networks
+get_external_ipv4_networks
+get_external_ipv6_networks
+get_external_networks
+get_flavor
+get_flavor_by_id
+get_flavor_by_ram
+get_flavor_name
+get_floating_ip
+get_floating_ip_by_id
+get_group
+get_image
+get_image_by_id
+get_image_exclude
+get_image_id
+get_image_name
+get_internal_ipv4_networks
+get_internal_ipv6_networks
+get_internal_networks
+get_keypair
+get_machine
+get_machine_by_mac
+get_name
+get_nat_destination
+get_network
+get_network_by_id
+get_network_extensions
+get_network_quotas
+get_nic_by_mac
+get_object
+get_object_capabilities
+get_object_metadata
+get_object_segment_size
+get_openstack_vars
+get_policy_on_cluster
+get_port
+get_port_by_id
+get_project
+get_qos_bandwidth_limit_rule
+get_qos_dscp_marking_rule
+get_qos_minimum_bandwidth_rule
+get_qos_policy
+get_qos_rule_type_details
+get_recordset
+get_region
+get_role
+get_router
+get_security_group
+get_security_group_by_id
+get_server
+get_server_by_id
+get_server_console
+get_server_group
+get_server_id
+get_server_meta
+get_server_private_ip
+get_server_public_ip
+get_service
+get_session_endpoint
+get_stack
+get_subnet
+get_subnet_by_id
+get_template_contents
+get_user
+get_user_by_id
+get_volume
+get_volume_attach_device
+get_volume_backup
+get_volume_by_id
+get_volume_id
+get_volume_limits
+get_volume_quotas
+get_volume_snapshot
+get_volume_snapshot_by_id
+get_volume_type
+get_volume_type_access
+get_volumes
+get_zone
+grant_role
+ha
+has_service
+identity
+image
+image_api_use_tasks
+infra_optim
+inspect_machine
+instance_ha
+is_object_stale
+is_user_in_group
+key_manager
+list_aggregates
+list_availability_zone_names
+list_baymodels
+list_cluster_policies
+list_cluster_profiles
+list_cluster_receivers
+list_cluster_templates
+list_clusters
+list_coe_cluster_templates
+list_coe_clusters
+list_containers
+list_domains
+list_endpoints
+list_flavor_access
+list_flavors
+list_floating_ip_pools
+list_floating_ips
+list_groups
+list_hypervisors
+list_images
+list_keypairs
+list_machines
+list_magnum_services
+list_networks
+list_nics
+list_nics_for_machine
+list_objects
+list_policies_on_cluster
+list_ports
+list_projects
+list_qos_bandwidth_limit_rules
+list_qos_dscp_marking_rules
+list_qos_minimum_bandwidth_rules
+list_qos_policies
+list_qos_rule_types
+list_recordsets
+list_role_assignments
+list_roles
+list_router_interfaces
+list_routers
+list_security_groups
+list_server_groups
+list_server_security_groups
+list_servers
+list_services
+list_stacks
+list_subnets
+list_users
+list_volume_backups
+list_volume_snapshots
+list_volume_types
+list_volumes
+list_zones
+load_balancer
+log
+message
+messaging
+meter
+metering
+monitoring
+monitoring_events
+monitoring_log_api
+monitoring_logging
+multi_region_network_automation
+name
+network
+nfv_orchestration
+node_set_provision_state
+object_store
+operator_policy
+orchestration
+patch_machine
+pformat
+placement
+policy
+pprint
+private
+purge_node_instance_info
+range_search
+rating
+rca
+rebuild_server
+register_machine
+remove_flavor_access
+remove_host_from_aggregate
+remove_machine_from_maintenance
+remove_router_interface
+remove_server_security_groups
+remove_user_from_group
+remove_volume_type_access
+reservation
+resource_cluster
+resource_optimization
+revoke_role
+root_cause_analysis
+search
+search_aggregates
+search_baymodels
+search_cluster_policies
+search_cluster_profiles
+search_cluster_receivers
+search_cluster_templates
+search_clusters
+search_coe_cluster_templates
+search_coe_clusters
+search_domains
+search_endpoints
+search_flavors
+search_floating_ip_pools
+search_floating_ips
+search_groups
+search_images
+search_keypairs
+search_networks
+search_ports
+search_projects
+search_qos_bandwidth_limit_rules
+search_qos_dscp_marking_rules
+search_qos_minimum_bandwidth_rules
+search_qos_policies
+search_recordsets
+search_roles
+search_routers
+search_security_groups
+search_server_groups
+search_servers
+search_services
+search_stacks
+search_subnets
+search_users
+search_volume_backups
+search_volume_snapshots
+search_volume_types
+search_volumes
+search_zones
+secgroup_source
+service_catalog
+session
+set_aggregate_metadata
+set_cluster_metadata
+set_cluster_profile_metadata
+set_compute_quotas
+set_container_access
+set_flavor_specs
+set_machine_maintenance_state
+set_machine_power_off
+set_machine_power_on
+set_machine_power_reboot
+set_network_quotas
+set_node_instance_info
+set_server_metadata
+set_volume_bootable
+set_volume_quotas
+share
+shared_file_system
+sign_coe_cluster_certificate
+strict_mode
+task_manager
+telemetry
+tricircle
+unregister_machine
+unset_flavor_specs
+update_aggregate
+update_baymodel
+update_cluster
+update_cluster_policy
+update_cluster_profile
+update_cluster_receiver
+update_cluster_template
+update_coe_cluster
+update_coe_cluster_template
+update_container
+update_domain
+update_endpoint
+update_group
+update_image_properties
+update_machine
+update_object
+update_policy_on_cluster
+update_port
+update_project
+update_qos_bandwidth_limit_rule
+update_qos_dscp_marking_rule
+update_qos_minimum_bandwidth_rule
+update_qos_policy
+update_recordset
+update_role
+update_router
+update_security_group
+update_server
+update_service
+update_stack
+update_subnet
+update_user
+update_zone
+use_direct_get
+use_external_network
+use_internal_network
+validate_node
+verify
+volume
+volume_exists
+wait_for_baremetal_node_lock
+wait_for_image
+wait_for_server
+workflow
+>>>
+ 
+https://docs.python.org/2/library/inspect.html#inspect.getargspec
+ 
+ b = conn.network.dhcp_agent_hosting_networks(agents[0])
+ 
+>>> print(networks[0])
+openstack.network.v2.network.DHCPAgentHostingNetwork(revision_number=8, availability_zone_hints=[], is_default=False, mtu=1450, created_at=2020-06-10T17:09:36Z, provider:segmentation_id=1024, router:external=True, availability_zones=['nova'], ipv6_address_scope=None, tags=[], dns_domain=, ipv4_address_scope=None, name=ext-net, updated_at=2020-06-10T17:16:50Z, project_id=361253118ff8438eb7c00657d903c08b, vlan_transparent=None, subnets=['0af56194-920e-407c-ba6b-1f610baee8bd'], id=e23cb063-a66e-4cff-aeda-9cda63275ee1, provider:network_type=vxlan, description=, status=ACTIVE, shared=False, admin_state_up=True, provider:physical_network=None)
+>>> print(networks[0].id)
+e23cb063-a66e-4cff-aeda-9cda63275ee1
+>>> print(networks[0].name)
+ext-net
+ 
+a = conn.network.agents(agent_type="DHCP agent")
+>>> agents[0].id
+'29c98876-8c11-4962-a6b3-8789da8a03b1'
+>>> agents[0].name
+>>> agents[0].host
+'hos5ms-cp1-neut-m1-mgmt'
+>>> agents[0].agent_type
+'DHCP agent'
+>>>
+ 
+>>> dir(a[0])
+['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', '_alternate_id', '_body', '_body_mapping', '_collect_attrs', '_consume_attrs', '_consume_body_attrs', '_consume_header_attrs', '_consume_mapped_attrs', '_consume_uri_attrs', '_from_munch', '_get_id', '_get_mapping', '_get_next_link', '_get_one_match', '_get_session', '_header', '_header_mapping', '_prepare_request', '_query_mapping', '_to_munch', '_translate_response', '_update', '_update_from_body_attrs', '_update_from_header_attrs', '_update_uri_from_attrs', '_uri', '_uri_mapping', 'add_agent_to_network', 'add_router_to_agent', 'agent_type', 'allow_create', 'allow_delete', 'allow_get', 'allow_head', 'allow_list', 'allow_update', 'availability_zone', 'base_path', 'binary', 'configuration', 'create', 'create_method', 'created_at', 'delete', 'description', 'detail_for', 'existing', 'find', 'get', 'ha_state', 'has_body', 'head', 'host', 'id', 'is_admin_state_up', 'is_alive', 'last_heartbeat_at', 'list', 'location', 'name', 'new', 'pagination_key', 'remove_agent_from_network', 'remove_router_from_agent', 'requires_id', 'resource_key', 'resources_key', 'service', 'started_at', 'to_dict', 'topic', 'update', 'update_method']
+>>>
+ 
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:/opt/openstackclient-3.9.0/lib/python3.4/site-packages$ grep "   def " /opt/openstackclient-3.9.0/lib/python3.4/site-packages/openstack/network/v2/_proxy.py
+    def create_address_scope(self, **attrs):
+    def delete_address_scope(self, address_scope, ignore_missing=True):
+    def find_address_scope(self, name_or_id, ignore_missing=True, **args):
+    def get_address_scope(self, address_scope):
+    def address_scopes(self, **query):
+    def update_address_scope(self, address_scope, **attrs):
+    def agents(self, **query):
+    def delete_agent(self, agent, ignore_missing=True):
+    def get_agent(self, agent):
+    def update_agent(self, agent, **attrs):
+    def dhcp_agent_hosting_networks(self, agent, **query):
+    def add_dhcp_agent_to_network(self, agent, network):
+    def remove_dhcp_agent_from_network(self, agent, network):
+    def network_hosting_dhcp_agents(self, network, **query):
+    def get_auto_allocated_topology(self, project=None):
+    def delete_auto_allocated_topology(self, project=None,
+    def validate_auto_allocated_topology(self, project=None):
+    def availability_zones(self, **query):
+    def find_extension(self, name_or_id, ignore_missing=True, **args):
+    def extensions(self, **query):
+    def create_flavor(self, **attrs):
+    def delete_flavor(self, flavor, ignore_missing=True):
+    def find_flavor(self, name_or_id, ignore_missing=True, **args):
+    def get_flavor(self, flavor):
+    def update_flavor(self, flavor, **attrs):
+    def flavors(self, **query):
+    def associate_flavor_with_service_profile(self, flavor, service_profile):
+    def disassociate_flavor_from_service_profile(
+    def create_ip(self, **attrs):
+    def delete_ip(self, floating_ip, ignore_missing=True):
+    def find_available_ip(self):
+    def find_ip(self, name_or_id, ignore_missing=True, **args):
+    def get_ip(self, floating_ip):
+    def ips(self, **query):
+    def update_ip(self, floating_ip, **attrs):
+    def create_health_monitor(self, **attrs):
+    def delete_health_monitor(self, health_monitor, ignore_missing=True):
+    def find_health_monitor(self, name_or_id, ignore_missing=True, **args):
+    def get_health_monitor(self, health_monitor):
+    def health_monitors(self, **query):
+    def update_health_monitor(self, health_monitor, **attrs):
+    def create_listener(self, **attrs):
+    def delete_listener(self, listener, ignore_missing=True):
+    def find_listener(self, name_or_id, ignore_missing=True, **args):
+    def get_listener(self, listener):
+    def listeners(self, **query):
+    def update_listener(self, listener, **attrs):
+    def create_load_balancer(self, **attrs):
+    def delete_load_balancer(self, load_balancer, ignore_missing=True):
+    def find_load_balancer(self, name_or_id, ignore_missing=True, **args):
+    def get_load_balancer(self, load_balancer):
+    def load_balancers(self, **query):
+    def update_load_balancer(self, load_balancer, **attrs):
+    def create_metering_label(self, **attrs):
+    def delete_metering_label(self, metering_label, ignore_missing=True):
+    def find_metering_label(self, name_or_id, ignore_missing=True, **args):
+    def get_metering_label(self, metering_label):
+    def metering_labels(self, **query):
+    def update_metering_label(self, metering_label, **attrs):
+    def create_metering_label_rule(self, **attrs):
+    def delete_metering_label_rule(self, metering_label_rule,
+    def find_metering_label_rule(self, name_or_id, ignore_missing=True,
+    def get_metering_label_rule(self, metering_label_rule):
+    def metering_label_rules(self, **query):
+    def update_metering_label_rule(self, metering_label_rule, **attrs):
+    def create_network(self, **attrs):
+    def delete_network(self, network, ignore_missing=True):
+    def find_network(self, name_or_id, ignore_missing=True, **args):
+    def get_network(self, network):
+    def networks(self, **query):
+    def update_network(self, network, **attrs):
+    def find_network_ip_availability(self, name_or_id, ignore_missing=True,
+    def get_network_ip_availability(self, network):
+    def network_ip_availabilities(self, **query):
+    def create_pool(self, **attrs):
+    def delete_pool(self, pool, ignore_missing=True):
+    def find_pool(self, name_or_id, ignore_missing=True, **args):
+    def get_pool(self, pool):
+    def pools(self, **query):
+    def update_pool(self, pool, **attrs):
+    def create_pool_member(self, pool, **attrs):
+    def delete_pool_member(self, pool_member, pool, ignore_missing=True):
+    def find_pool_member(self, name_or_id, pool, ignore_missing=True, **args):
+    def get_pool_member(self, pool_member, pool):
+    def pool_members(self, pool, **query):
+    def update_pool_member(self, pool_member, pool, **attrs):
+    def create_port(self, **attrs):
+    def delete_port(self, port, ignore_missing=True):
+    def find_port(self, name_or_id, ignore_missing=True, **args):
+    def get_port(self, port):
+    def ports(self, **query):
+    def update_port(self, port, **attrs):
+    def add_ip_to_port(self, port, ip):
+    def remove_ip_from_port(self, ip):
+    def get_subnet_ports(self, subnet_id):
+    def create_qos_bandwidth_limit_rule(self, qos_policy, **attrs):
+    def delete_qos_bandwidth_limit_rule(self, qos_rule, qos_policy,
+    def find_qos_bandwidth_limit_rule(self, qos_rule_id, qos_policy,
+    def get_qos_bandwidth_limit_rule(self, qos_rule, qos_policy):
+    def qos_bandwidth_limit_rules(self, qos_policy, **query):
+    def update_qos_bandwidth_limit_rule(self, qos_rule, qos_policy,
+    def create_qos_dscp_marking_rule(self, qos_policy, **attrs):
+    def delete_qos_dscp_marking_rule(self, qos_rule, qos_policy,
+    def find_qos_dscp_marking_rule(self, qos_rule_id, qos_policy,
+    def get_qos_dscp_marking_rule(self, qos_rule, qos_policy):
+    def qos_dscp_marking_rules(self, qos_policy, **query):
+    def update_qos_dscp_marking_rule(self, qos_rule, qos_policy, **attrs):
+    def create_qos_minimum_bandwidth_rule(self, qos_policy, **attrs):
+    def delete_qos_minimum_bandwidth_rule(self, qos_rule, qos_policy,
+    def find_qos_minimum_bandwidth_rule(self, qos_rule_id, qos_policy,
+    def get_qos_minimum_bandwidth_rule(self, qos_rule, qos_policy):
+    def qos_minimum_bandwidth_rules(self, qos_policy, **query):
+    def update_qos_minimum_bandwidth_rule(self, qos_rule, qos_policy,
+    def create_qos_policy(self, **attrs):
+    def delete_qos_policy(self, qos_policy, ignore_missing=True):
+    def find_qos_policy(self, name_or_id, ignore_missing=True, **args):
+    def get_qos_policy(self, qos_policy):
+    def qos_policies(self, **query):
+    def update_qos_policy(self, qos_policy, **attrs):
+    def find_qos_rule_type(self, rule_type_name, ignore_missing=True):
+    def get_qos_rule_type(self, qos_rule_type):
+    def qos_rule_types(self, **query):
+    def delete_quota(self, quota, ignore_missing=True):
+    def get_quota(self, quota, details=False):
+    def get_quota_default(self, quota):
+    def quotas(self, **query):
+    def update_quota(self, quota, **attrs):
+    def create_rbac_policy(self, **attrs):
+    def delete_rbac_policy(self, rbac_policy, ignore_missing=True):
+    def find_rbac_policy(self, rbac_policy, ignore_missing=True, **args):
+    def get_rbac_policy(self, rbac_policy):
+    def rbac_policies(self, **query):
+    def update_rbac_policy(self, rbac_policy, **attrs):
+    def create_router(self, **attrs):
+    def delete_router(self, router, ignore_missing=True):
+    def find_router(self, name_or_id, ignore_missing=True, **args):
+    def get_router(self, router):
+    def routers(self, **query):
+    def update_router(self, router, **attrs):
+    def add_interface_to_router(self, router, subnet_id=None, port_id=None):
+    def remove_interface_from_router(self, router, subnet_id=None,
+    def add_gateway_to_router(self, router, **body):
+    def remove_gateway_from_router(self, router, **body):
+    def routers_hosting_l3_agents(self, router, **query):
+    def agent_hosted_routers(self, agent, **query):
+    def add_router_to_agent(self, agent, router):
+    def remove_router_from_agent(self, agent, router):
+    def create_security_group(self, **attrs):
+    def delete_security_group(self, security_group, ignore_missing=True):
+    def find_security_group(self, name_or_id, ignore_missing=True, **args):
+    def get_security_group(self, security_group):
+    def security_groups(self, **query):
+    def update_security_group(self, security_group, **attrs):
+    def security_group_open_port(self, sgid, port, protocol='tcp'):
+    def security_group_allow_ping(self, sgid):
+    def create_security_group_rule(self, **attrs):
+    def delete_security_group_rule(self, security_group_rule,
+    def find_security_group_rule(self, name_or_id, ignore_missing=True,
+    def get_security_group_rule(self, security_group_rule):
+    def security_group_rules(self, **query):
+    def create_segment(self, **attrs):
+    def delete_segment(self, segment, ignore_missing=True):
+    def find_segment(self, name_or_id, ignore_missing=True, **args):
+    def get_segment(self, segment):
+    def segments(self, **query):
+    def update_segment(self, segment, **attrs):
+    def service_providers(self, **query):
+    def create_service_profile(self, **attrs):
+    def delete_service_profile(self, service_profile, ignore_missing=True):
+    def find_service_profile(self, name_or_id, ignore_missing=True, **args):
+    def get_service_profile(self, service_profile):
+    def service_profiles(self, **query):
+    def update_service_profile(self, service_profile, **attrs):
+    def create_subnet(self, **attrs):
+    def delete_subnet(self, subnet, ignore_missing=True):
+    def find_subnet(self, name_or_id, ignore_missing=True, **args):
+    def get_subnet(self, subnet):
+    def subnets(self, **query):
+    def update_subnet(self, subnet, **attrs):
+    def create_subnet_pool(self, **attrs):
+    def delete_subnet_pool(self, subnet_pool, ignore_missing=True):
+    def find_subnet_pool(self, name_or_id, ignore_missing=True, **args):
+    def get_subnet_pool(self, subnet_pool):
+    def subnet_pools(self, **query):
+    def update_subnet_pool(self, subnet_pool, **attrs):
+    def _check_tag_support(resource):
+    def set_tags(self, resource, tags):
+    def create_trunk(self, **attrs):
+    def delete_trunk(self, trunk, ignore_missing=True):
+    def find_trunk(self, name_or_id, ignore_missing=True, **args):
+    def get_trunk(self, trunk):
+    def trunks(self, **query):
+    def update_trunk(self, trunk, **attrs):
+    def add_trunk_subports(self, trunk, subports):
+    def delete_trunk_subports(self, trunk, subports):
+    def get_trunk_subports(self, trunk):
+    def create_vpn_service(self, **attrs):
+    def delete_vpn_service(self, vpn_service, ignore_missing=True):
+    def find_vpn_service(self, name_or_id, ignore_missing=True, **args):
+    def get_vpn_service(self, vpn_service):
+    def vpn_services(self, **query):
+    def update_vpn_service(self, vpn_service, **attrs):
+ 
+>>> inspect.getfile(openstack.connection)
+'/opt/openstackclient-3.9.0/lib/python3.4/site-packages/openstack/connection.py'
+>>>
+conn=openstack.connect()
+auth = conn.connect_as(username=os.environ["OS_USERNAME"], password=os.environ["OS_PASSWORD"], project_name='admin')
+perl -pe 'if ( not $_ =~ /^\s+def /){$_=~s/^(.+)?\n$//g;}' /opt/openstackclient-3.9.0/lib/python3.4/site-packages/openstack/network/v2/_proxy.py
+https://docs.openstack.org/openstacksdk/train/user/connection.html#openstack.connection.Connection
+ 
+>>> l3s = list(conn.network.agents(agent_type="L3 agent"))
+>>> l3s
+[openstack.network.v2.agent.Agent(alive=True, heartbeat_timestamp=2020-07-29 16:01:49, host=hos5ms-cp1-comp0001-mgmt, sta         rted_at=2020-06-10 15:54:12, id=50e59a5d-6a81-40e6-8d82-ebbca248a396, created_at=2020-06-10 15:54:12, configurations={'ag         ent_mode': 'dvr', 'interface_driver': 'neutron.agent.linux.interface.OVSInterfaceDriver', 'floating_ips': 1, 'gateway_ext         ernal_network_id': '', 'handle_internal_only_routers': True, 'routers': 1, 'external_network_bridge': 'br-vlan3122', 'log         _agent_heartbeats': False, 'interfaces': 1, 'ex_gw_ports': 1}, topic=l3_agent, availability_zone=nova, binary=neutron-l3-         agent, description=None, admin_state_up=True, agent_type=L3 agent), openstack.network.v2.agent.Agent(alive=True, heartbea         t_timestamp=2020-07-29 16:02:09, host=hos5ms-cp1-comp0002-mgmt, started_at=2020-06-10 15:54:12, id=45f7fd43-2bda-40f0-83c         a-f16026af218e, created_at=2020-06-10 15:54:12, configurations={'agent_mode': 'dvr', 'interface_driver': 'neutron.agent.l         inux.interface.OVSInterfaceDriver', 'floating_ips': 1, 'gateway_external_network_id': '', 'handle_internal_only_routers':          True, 'routers': 2, 'external_network_bridge': 'br-vlan3122', 'log_agent_heartbeats': False, 'interfaces': 2, 'ex_gw_por         ts': 2}, topic=l3_agent, availability_zone=nova, binary=neutron-l3-agent, description=None, admin_state_up=True, agent_ty         pe=L3 agent), openstack.network.v2.agent.Agent(alive=True, heartbeat_timestamp=2020-07-29 16:01:58, host=hos5ms-cp1-neut-         m1-mgmt, started_at=2020-06-10 15:54:36, id=0138e4e3-85dd-415b-9413-a0201c06f8fd, created_at=2020-06-10 15:54:36, configu         rations={'agent_mode': 'dvr_snat', 'interface_driver': 'neutron.agent.linux.interface.OVSInterfaceDriver', 'floating_ips'         : 0, 'gateway_external_network_id': '', 'handle_internal_only_routers': True, 'routers': 2, 'external_network_bridge': 'b         r-vlan3122', 'log_agent_heartbeats': False, 'interfaces': 2, 'ex_gw_ports': 2}, topic=l3_agent, availability_zone=nova, b         inary=neutron-vpn-agent, description=None, admin_state_up=True, agent_type=L3 agent), openstack.network.v2.agent.Agent(al         ive=True, heartbeat_timestamp=2020-07-29 16:01:56, host=hos5ms-cp1-neut-m2-mgmt, started_at=2020-06-10 15:54:36, id=a4831         42d-1295-4438-b6dc-ed79d4b06f66, created_at=2020-06-10 15:54:36, configurations={'agent_mode': 'dvr_snat', 'interface_dri         ver': 'neutron.agent.linux.interface.OVSInterfaceDriver', 'floating_ips': 0, 'gateway_external_network_id': '', 'handle_i         nternal_only_routers': True, 'routers': 2, 'external_network_bridge': 'br-vlan3122', 'log_agent_heartbeats': False, 'inte         rfaces': 2, 'ex_gw_ports': 2}, topic=l3_agent, availability_zone=nova, binary=neutron-vpn-agent, description=None, admin_         state_up=True, agent_type=L3 agent)]
+>>> len(l3s)
+4
+>>> for l in l3s:
+...     print("Name %s Host" % (l.name, l.host))
+...
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+TypeError: not all arguments converted during string formatting
+>>> for l in l3s:
+...     print("Name %s Host %s" % (l.name, l.host))
+...
+Name None Host hos5ms-cp1-comp0001-mgmt
+Name None Host hos5ms-cp1-comp0002-mgmt
+Name None Host hos5ms-cp1-neut-m1-mgmt
+Name None Host hos5ms-cp1-neut-m2-mgmt
+>>> print list(conn.network.agent_hosted_routers(l3s[2]))[0]
+  File "<stdin>", line 1
+    print list(conn.network.agent_hosted_routers(l3s[2]))[0]
+             ^
+SyntaxError: invalid syntax
+>>> print(conn.network.agent_hosted_routers(l3s[2]))
+<generator object list at 0x7f68ee7dba20>
+>>> print(list(conn.network.agent_hosted_routers(l3s[2]))[0].id)
+88e104d5-d2a1-4161-896a-ef59ae76ee44
+>>> print(list(conn.network.routers_hosting_l3_agents("88e104d5-d2a1-4161-896a-ef59ae76ee44"))
+...
+...
+KeyboardInterrupt
+>>> print(list(conn.network.routers_hosting_l3_agents("88e104d5-d2a1-4161-896a-ef59ae76ee44")))
+[openstack.network.v2.agent.RouterL3Agent(alive=True, host=hos5ms-cp1-neut-m1-mgmt, started_at=2020-06-10 15:54:36, creat         ed_at=2020-06-10 15:54:36, heartbeat_timestamp=2020-07-29 16:08:58, configurations={'agent_mode': 'dvr_snat', 'interface_         driver': 'neutron.agent.linux.interface.OVSInterfaceDriver', 'floating_ips': 0, 'gateway_external_network_id': '', 'handl         e_internal_only_routers': True, 'routers': 2, 'external_network_bridge': 'br-vlan3122', 'log_agent_heartbeats': False, 'i         nterfaces': 2, 'ex_gw_ports': 2}, topic=l3_agent, availability_zone=nova, ha_state=None, binary=neutron-vpn-agent, descri         ption=None, id=0138e4e3-85dd-415b-9413-a0201c06f8fd, admin_state_up=True, agent_type=L3 agent)]
+>>> print(len(list(conn.network.routers_hosting_l3_agents("88e104d5-d2a1-4161-896a-ef59ae76ee44"))))
+1
+>>> print(list(conn.network.routers_hosting_l3_agents("88e104d5-d2a1-4161-896a-ef59ae76ee44"))[0].id)
+0138e4e3-85dd-415b-9413-a0201c06f8fd
+>>> l3s[2].id
+'0138e4e3-85dd-415b-9413-a0201c06f8fd'
+>>>
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:/opt/openstackclient-3.9.0/lib/python3.4/site-packages$ perl -pe 'if ( not $_ =~ /^\s+def /){$_=~s/^(.+)?\n$//g;}' /opt/openstackclient-3.9.0/lib/python3.4/site-packages/openstack/network/v2/_proxy.py | grep router
+    def create_router(self, **attrs):
+    def delete_router(self, router, ignore_missing=True):
+    def find_router(self, name_or_id, ignore_missing=True, **args):
+    def get_router(self, router):
+    def routers(self, **query):
+    def update_router(self, router, **attrs):
+    def add_interface_to_router(self, router, subnet_id=None, port_id=None):
+    def remove_interface_from_router(self, router, subnet_id=None,
+    def add_gateway_to_router(self, router, **body):
+    def remove_gateway_from_router(self, router, **body):
+    def routers_hosting_l3_agents(self, router, **query):
+    def agent_hosted_routers(self, agent, **query):
+    def add_router_to_agent(self, agent, router):
+    def remove_router_from_agent(self, agent, router):
+stack@hos5ms-cp1-c0-m1-mgmt:/opt/openstackclient-3.9.0/lib/python3.4/site-packages$
+ 
+ 
+ 1094  vi test1.py
+ 1095  /opt/openstackclient-3.9.0/bin/openstack network agent list -f csv | grep L3 | grep neut-m
+ 1096  neutron router-list-on-l3-agent 0138e4e3-85dd-415b-9413-a0201c06f8fd -f csv
+ 1097  neutron router-list-on-l3-agent 0138e4e3-85dd-415b-9413-a0201c06f8fd -f csv
+ 1098  neutron router-list-on-l3-agent "a483142d-1295-4438-b6dc-ed79d4b06f66" -f csv
+ 1099  neutron router-list-on-l3-agent 0138e4e3-85dd-415b-9413-a0201c06f8fd -f csv
+ 1100  neutron router-list-on-l3-agent 0138e4e3-85dd-415b-9413-a0201c06f8fd -f csv
+ 1101  history
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ cat test1.py
+#!/opt/openstackclient-3.9.0/bin/python
+ 
+import openstack, inspect, math
+import sys, os, re, threading, queue, argparse
+ 
+conn=openstack.connect()
+auth = conn.connect_as(username=os.environ["OS_USERNAME"], password=os.environ["OS_PASSWORD"], project_name='admin')
+ 
+ 
+dhcp_agents = list(auth.network.agents(agent_type="DHCP agent"))
+net = list(auth.network.dhcp_agent_hosting_networks(dhcp_agents[0]))
+ 
+resp1=auth.network.remove_dhcp_agent_from_network(dhcp_agents[0], net[0])
+resp2=auth.network.add_dhcp_agent_to_network(dhcp_agents[0], net[0])
+ 
+ 
+l3_agents = list(auth.network.agents(agent_type="L3 agent"))
+l3=[]
+for l3a in l3_agents:
+   if "neut-m" in l3a.host:
+      l3.append(l3a)
+ 
+routers = list(auth.network.agent_hosted_routers(l3[0]))
+ 
+resp3=auth.network.add_router_to_agent(l3[1], routers[0])
+resp4=auth.network.remove_router_from_agent(l3[0], routers[0])
+ 
+resp5=auth.network.add_router_to_agent(l3[0], routers[0])
+resp6=auth.network.remove_router_from_agent(l3[1], routers[0])
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+ 
+ 
+==================================================
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ cat test2.py
+#!/opt/openstackclient-3.9.0/bin/python
+ 
+import openstack, inspect, math
+import sys, os, re, threading, queue, argparse
+ 
+def get_agent_id_form_router(auth, router):
+    return list(map((lambda x : "%s/%s" %(x.id,x.host)), auth.network.routers_hosting_l3_agents(router)))
+ 
+def get_agent_id_form_network(auth, network):
+    return list(map((lambda x : "%s/%s" %(x.id,x.host)), auth.network.network_hosting_dhcp_agents(network)))
+ 
+conn=openstack.connect()
+auth = conn.connect_as(username=os.environ["OS_USERNAME"], password=os.environ["OS_PASSWORD"], project_name='admin')
+ 
+list_routers = list(auth.network.routers())
+list_networks = list(auth.network.networks())
+ 
+print("Networks:\n\n")
+for n in list_networks:
+        print ("Network UUID %s Agent DHCP : %s" % (n.id, "   ".join(get_agent_id_form_network(auth,n))))
+ 
+print("\n\nRouter:\n\n")
+for r in list_routers:
+        print ("Router UUID %s Agent L3 : %s" % (r.id, "   ".join(get_agent_id_form_router(auth,r))))
+ 
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+=======================================================
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$ ./test2.py
+Networks:
+ 
+ 
+Network UUID 2471511a-c9a8-4665-b78d-e8ea2ba81184 Agent DHCP : 1772b6f5-63a3-43a3-a533-813e3d1c1049/hos5ms-cp1-neut-m2-mgmt   29c98876-8c11-4962-a6b3-8789da8a03b1/hos5ms-cp1-neut-m1-mgmt
+Network UUID 3cb8c2b4-94d8-41ee-a3eb-89cd52ce1300 Agent DHCP : 1772b6f5-63a3-43a3-a533-813e3d1c1049/hos5ms-cp1-neut-m2-mgmt   29c98876-8c11-4962-a6b3-8789da8a03b1/hos5ms-cp1-neut-m1-mgmt
+Network UUID 5e6ab420-fbd4-48be-87c3-f63591d88017 Agent DHCP : 1772b6f5-63a3-43a3-a533-813e3d1c1049/hos5ms-cp1-neut-m2-mgmt   29c98876-8c11-4962-a6b3-8789da8a03b1/hos5ms-cp1-neut-m1-mgmt
+Network UUID e23cb063-a66e-4cff-aeda-9cda63275ee1 Agent DHCP : 1772b6f5-63a3-43a3-a533-813e3d1c1049/hos5ms-cp1-neut-m2-mgmt   29c98876-8c11-4962-a6b3-8789da8a03b1/hos5ms-cp1-neut-m1-mgmt
+ 
+ 
+Router:
+ 
+ 
+Router UUID 88e104d5-d2a1-4161-896a-ef59ae76ee44 Agent L3 : 0138e4e3-85dd-415b-9413-a0201c06f8fd/hos5ms-cp1-neut-m1-mgmt
+Router UUID ad659025-2d18-43e5-a65c-f2ed365a716d Agent L3 : a483142d-1295-4438-b6dc-ed79d4b06f66/hos5ms-cp1-neut-m2-mgmt
+stack@hos5ms-cp1-c0-m1-mgmt:~/JFL$
+ 
+===========================================================
+ 
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed
+from time import sleep
+from random import randint
+ 
+def return_after_5_secs(num):
+    sleep(randint(1, 5))
+    return "Return of {}".format(num)
+ 
+pool = ThreadPoolExecutor(5)
+futures = []
+for x in range(5):
+    futures.append(pool.submit(return_after_5_secs, x))
+ 
+for x in as_completed(futures):
+    print(x.result())
+ 
+From <http://masnun.com/2016/03/29/python-a-quick-introduction-to-the-concurrent-futures-module.html> 
+ 
+ 
+ 
+Created with Microsoft OneNote 2016.
+
