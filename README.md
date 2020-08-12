@@ -32,10 +32,10 @@ optional arguments:
   -n NODE, --node NODE  Neutron node for evacuate
   --nb_net_max NB_NET_MAX
                         Nombre de reseaux maximum a evacuer/balancer (default
-                        0:no limit)
+                        -1:no limit)
   --nb_router_max NB_ROUTER_MAX
                         Nombre de routeurs maximum a evacuer/balancer (default
-                        0:no limit)
+                        -1:no limit)
   --action {balancing,evacuate}
                         action to perform choices balancing or evacuate
   --dryrun              Dry Run option
