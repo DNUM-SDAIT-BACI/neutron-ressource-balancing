@@ -45,7 +45,7 @@ def check_namespace(auth, list_networks, list_routers):
             if len(agents) == 0:
                 print("Error !!! Network %s is not owned by an agent" % n.id)
                 status = 1
-                break
+                continue
 
             if len(agent) > 2:
                 printe("Error !!! Network %s is owned by more than 2 agents" % r.id)
@@ -68,7 +68,7 @@ def check_namespace(auth, list_networks, list_routers):
             if len(agent) == 0:
                 print("Error !!! Routeur %s is not owned by an agent" % r.id)
                 status = 1
-                break
+                continue
             
             if len(agent) > 1:
                 printe("Error !!! Routeur %s is owned by more than one agent" % r.id)
