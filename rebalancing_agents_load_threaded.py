@@ -595,8 +595,8 @@ def check_load():
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
 
             for ag in asc_agent:
-                print("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0].host, ag[1]))
-                log.info("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0].host, ag[1]))                
+                print("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0]].host, ag[1]))
+                log.info("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0]].host, ag[1]))                
 
             print("\n\n")
             log.info("\n\n")            

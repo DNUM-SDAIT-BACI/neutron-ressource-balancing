@@ -502,8 +502,8 @@ def check_load():
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
 
             for ag in asc_agent:
-                print("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0].host, ag[1]))
-                log.info("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0].host, ag[1]))                
+                print("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0]].host, ag[1]))
+                log.info("Agent: %s/%s # Router : %d" % (ag[0], hash_al3[ag[0]].host, ag[1]))                
 
             print("\n\n")
             log.info("\n\n")            
@@ -517,7 +517,7 @@ def check_load():
 def check_namespace(auth):
     global log, hash_adhcp, hash_al3, check_action_router, check_action_net
     try:
-        sleep(30)
+        sleep(30)evacuate_router
         hosts = set()
         for k in hash_adhcp.keys():
             hosts.add(hash_adhcp[k].host)
