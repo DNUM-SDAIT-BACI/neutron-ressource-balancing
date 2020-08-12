@@ -192,29 +192,40 @@ def adding_removing_network(auth, agent, average_network):
                 print("Warning !!! Can't find Network to move")
                 log.warning("Warning !!! Can't find Network to move")
                 return 0
-            agent_net =  get_agent_id_form_network(auth, hash_net[net])
-            if len(agent_net) != 2:
-                print("Warning !!! Net %s On only one agent : %s0" % (net, " ".join(agent_net)))
-                log.warning("Warning !!! Net %s On only one agent : %s0" % (net, " ".join(agent_net)))                
-            new_agent = get_agent_network(agent, asc_agent, agent_net, average_network)
-            if new_agent is None:
-                exclude_net.append(net)
-                continue
-            
-            if nb_net_max != -1 and nb_network >= nb_net_max:
-                break
-            nb_network +=1
 
-            print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
-            log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
-                check_action_net[hash_adhcp[new_agent].host].append(["Adding", "net", net])
-            print("Removing Net %s to Agent DHCP : %s" % (net, agent))
-            log.info("Removing Net %s to Agent DHCP : %s" % (net, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
-                check_action_net[hash_adhcp[agent].host].append(["Removing", "net", net])
+            if auth.network.get_network(net) is not None:
+                agent_net =  get_agent_id_form_network(auth, hash_net[net])
+                if len(agent_net) != 2:
+                    print("Warning !!! Net %s On only one agent : %s" % (net, " ".join(agent_net)))
+                    log.warning("Warning !!! Net %s On only one agent : %s" % (net, " ".join(agent_net)))
+                    
+                new_agent = get_agent_network(agent, asc_agent, agent_net, average_network)
+                if new_agent is None:
+                    exclude_net.append(net)
+                    continue
+
+                new_agent_state = auth.network.get_agent(new_agent)
+                if new_agent_state.is_alive is False:
+                    print("Error in adding_removing_network !!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    log.error("Error in adding_removing_network !!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    return -1
+
+                if nb_net_max != -1 and nb_network >= nb_net_max:
+                    break
+                nb_network +=1
+
+                print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
+                log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))            
+                if not dryrun:
+                    resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
+                    check_action_net[hash_adhcp[new_agent].host].append(["Adding", "net", net])
+
+                print("Removing Net %s to Agent DHCP : %s" % (net, agent))
+                log.info("Removing Net %s to Agent DHCP : %s" % (net, agent))            
+                if not dryrun:
+                    resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
+                    check_action_net[hash_adhcp[agent].host].append(["Removing", "net", net])
+                
             adhcp_nets[new_agent][net] = adhcp_nets[agent][net]
             del(adhcp_nets[agent][net])
             asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
@@ -249,23 +260,33 @@ def adding_removing_router(auth, agent, average_router):
                 print("Warning !!! Can't find Network to move")
                 log.warning("Warning !!! Can't find Network to move")
                 return 0
-            new_agent = get_agent_router(agent, asc_agent, average_router)
-            if new_agent is None:                
-                exclude_router.append(router)
-                continue
-            if nb_router_max != -1 and nb_router >= nb_router_max:
-                break
-            nb_router +=1
-            print("Removing Router %s to Agent L3 : %s" % (router, agent))
-            log.info("Removing Router %s to Agent L3 : %s" % (router, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
-                check_action_router[hash_al3[agent].host].append(["Removing", "router", router])
-            print("Adding Router %s to Agent L3 : %s" % (router, new_agent))
-            log.info("Adding Router %s to Agent L3 : %s" % (router, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
-                check_action_router[hash_al3[new_agent].host].append(["Adding", "router", router])
+            if auth.network.get_router(router) is not None:
+                new_agent = get_agent_router(agent, asc_agent, average_router)
+                if new_agent is None:                
+                    exclude_router.append(router)
+                    continue
+
+                new_agent_state = auth.network.get_agent(new_agent)
+                if new_agent_state.is_alive is False:
+                    print("Error in adding_removing_router!!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    log.error("Error in adding_removing_router !!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    return -1
+                
+                if nb_router_max != -1 and nb_router >= nb_router_max:
+                    break
+                nb_router +=1
+                
+                print("Removing Router %s to Agent L3 : %s" % (router, agent))
+                log.info("Removing Router %s to Agent L3 : %s" % (router, agent))            
+                if not dryrun:
+                    resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
+                    check_action_router[hash_al3[agent].host].append(["Removing", "router", router])
+                    
+                print("Adding Router %s to Agent L3 : %s" % (router, new_agent))    
+                log.info("Adding Router %s to Agent L3 : %s" % (router, new_agent))            
+                if not dryrun:
+                    resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
+                    check_action_router[hash_al3[new_agent].host].append(["Adding", "router", router])
             al3_routers[new_agent][router] = al3_routers[agent][router]
             del(al3_routers[agent][router])
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
@@ -374,22 +395,32 @@ def evacuate_network(auth, node):
             if os.path.exists(stop_file):
                 print("Find file %s : stopping" % stop_file)
                 log.error("Find file %s : stopping" % stop_file)                
-                return -2            
-            agent_net =  get_agent_id_form_network(auth, hash_net[net])
-            new_agent = get_agent_network(agent, asc_agent, agent_net, average_network)
-            if new_agent is None:                
-                continue
-            nb_network +=1            
-            print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
-            log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
-                check_action_net[hash_adhcp[new_agent].host].append(["Adding", "net", net])
-            print("Removing Net %s to Agent DHCP : %s" % (net, agent))
-            log.info("Removing Net %s to Agent DHCP : %s" % (net, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
-                check_action_net[hash_adhcp[agent].host].append(["Removing", "net", net])
+                return -2
+            if auth.network.get_network(net) is not None:
+                agent_net =  get_agent_id_form_network(auth, hash_net[net])
+                new_agent = get_agent_network(agent, asc_agent, agent_net, average_network)
+                if new_agent is None:                
+                    continue
+                
+                new_agent_state = auth.network.get_agent(new_agent)
+                if new_agent_state.is_alive is False:
+                    print("Error in evacuate_network !!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    log.error("Error in evacuate_network !!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    return -1
+                
+                nb_network +=1            
+                print("Adding Net %s to Agent DHCP : %s" % (net, new_agent))
+                log.info("Adding Net %s to Agent DHCP : %s" % (net, new_agent))            
+                if not dryrun:
+                    resp1 = auth.network.add_dhcp_agent_to_network(new_agent, hash_net[net])
+                    check_action_net[hash_adhcp[new_agent].host].append(["Adding", "net", net])
+
+                print("Removing Net %s to Agent DHCP : %s" % (net, agent))
+                log.info("Removing Net %s to Agent DHCP : %s" % (net, agent))            
+                if not dryrun:
+                    resp2 = auth.network.remove_dhcp_agent_from_network(agent, hash_net[net])
+                    check_action_net[hash_adhcp[agent].host].append(["Removing", "net", net])
+
             adhcp_nets[new_agent][net] = data_agent[net]
             asc_agent = pair_list_nb_by_id_asc(adhcp_nets)
         return 0
@@ -418,21 +449,31 @@ def evacuate_router(auth, node):
                 break
             if os.path.exists(stop_file):
                 print("Find file %s : stopping" % stop_file)
-                return -2            
-            new_agent = get_agent_router(agent, asc_agent, average_router)
-            if new_agent is None:                
-                continue
-            nb_router +=1            
-            print("Removing Router %s to Agent L3 : %s" % (router, agent))
-            log.info("Removing Router %s to Agent L3 : %s" % (router, agent))            
-            if not dryrun:
-                resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
-                check_action_router[hash_al3[agent].host].append(["Removing", "router", router])
-            print("Adding Router %s to Agent L3 : %s" % (router, new_agent))
-            log.info("Adding Router %s to Agent L3 : %s" % (router, new_agent))            
-            if not dryrun:
-                resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
-                check_action_router[hash_al3[new_agent].host].append(["Removing", "router", router])                
+                return -2
+            if auth.network.get_router(router) is not None:
+                new_agent = get_agent_router(agent, asc_agent, average_router)
+                if new_agent is None:                
+                    continue
+
+                new_agent_state = auth.network.get_agent(new_agent)
+                if new_agent_state.is_alive is False:
+                    print("Error in adding_removing_router!!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    log.error("Error in adding_removing_router !!! Agent %s/%s state is not alive" % (new_agent, new_agent_state.host))
+                    return -1
+
+                nb_router +=1            
+
+                print("Removing Router %s to Agent L3 : %s" % (router, agent))
+                log.info("Removing Router %s to Agent L3 : %s" % (router, agent))            
+                if not dryrun:
+                    resp2 = auth.network.remove_router_from_agent(agent, hash_router[router])
+                    check_action_router[hash_al3[agent].host].append(["Removing", "router", router])
+
+                print("Adding Router %s to Agent L3 : %s" % (router, new_agent))
+                log.info("Adding Router %s to Agent L3 : %s" % (router, new_agent))            
+                if not dryrun:
+                    resp1 = auth.network.add_router_to_agent(new_agent, hash_router[router])
+                    check_action_router[hash_al3[new_agent].host].append(["Removing", "router", router])                
             al3_routers[new_agent][router] = data_agent[router]
             asc_agent = pair_list_nb_by_id_asc(al3_routers)
         return 0
